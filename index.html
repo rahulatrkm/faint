@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Faint — the daily color-perception game</title>
+<meta name="description" content="One tile is a faintly different shade. Find it. Every round it gets harder. A new color puzzle every day — how sharp are your eyes?" />
+<meta name="theme-color" content="#0e1117" />
+<link rel="canonical" href="https://rahulatrkm.github.io/faint/" />
+<meta property="og:title" content="Faint — the daily color-perception game" />
+<meta property="og:description" content="One tile is a faintly different shade. Find it. It gets harder every round. New puzzle daily." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://rahulatrkm.github.io/faint/" />
+<meta name="twitter:card" content="summary_large_image" />
+<style>
+  :root{
+    --bg:#0e1117; --fg:#e9edf5; --muted:#8b97ad; --line:#222b3d;
+    --accent:#5b8cff; --good:#3ad39f; --bad:#ff5c7a; --gold:#ffcf5c;
+    --gap:6px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+    display:flex; flex-direction:column; align-items:center; min-height:100dvh; overflow-x:hidden;
+    user-select:none;
+  }
+  header{width:100%; max-width:560px; padding:14px 18px 6px; display:flex; align-items:center; justify-content:space-between}
+  .brand{font-weight:800; letter-spacing:.5px; font-size:1.35rem}
+  .brand span{color:var(--accent)}
+  .hstats{display:flex; gap:16px; font-size:.82rem; color:var(--muted)}
+  .hstats b{display:block; color:var(--fg); font-size:1.05rem; text-align:center; font-variant-numeric:tabular-nums}
+  main{width:100%; max-width:560px; padding:6px 18px 24px; flex:1; display:flex; flex-direction:column}
+  .hud{display:flex; align-items:center; justify-content:space-between; margin:8px 2px 12px}
+  .round{font-size:1.05rem; font-weight:700}
+  .round small{color:var(--muted); font-weight:500}
+  .lives{font-size:1.15rem; letter-spacing:2px}
+  .timerbar{height:6px; border-radius:6px; background:var(--line); overflow:hidden; margin:2px 2px 14px}
+  .timerbar > i{display:block; height:100%; width:100%; background:linear-gradient(90deg,var(--good),var(--accent));
+    transform-origin:left; transition:transform .1s linear}
+  .board{
+    display:grid; gap:var(--gap); width:100%; aspect-ratio:1/1;
+    border-radius:16px; touch-action:manipulation;
+  }
+  .tile{border-radius:10px; width:100%; height:100%; cursor:pointer; transition:transform .08s ease, box-shadow .12s ease}
+  .tile:active{transform:scale(.94)}
+  .tile.win{animation:pop .35s ease}
+  .tile.reveal{box-shadow:0 0 0 3px var(--good), 0 0 22px rgba(58,211,159,.6); z-index:2}
+  .tile.miss{box-shadow:0 0 0 3px var(--bad)}
+  @keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.18)}100%{transform:scale(1)}}
+  .msg{min-height:22px; text-align:center; color:var(--muted); margin:14px 0 0; font-size:.95rem}
+  .msg b{color:var(--fg)}
+
+  /* start + end overlays */
+  .overlay{position:fixed; inset:0; background:rgba(8,11,18,.86); backdrop-filter:blur(6px);
+    display:flex; align-items:center; justify-content:center; padding:20px; z-index:20}
+  .card{background:#141a26; border:1px solid var(--line); border-radius:20px; padding:26px 24px; max-width:420px; width:100%; text-align:center}
+  .card h1{margin:.1em 0 .1em; font-size:2rem}
+  .card h1 span{color:var(--accent)}
+  .card .tag{color:var(--muted); margin:.2em 0 1em}
+  .card p{color:var(--muted); font-size:.95rem}
+  .btn{display:inline-block; border:0; cursor:pointer; font-weight:700; font-size:1.05rem;
+    background:linear-gradient(90deg,var(--accent),#8b5cff); color:#fff; padding:14px 26px; border-radius:14px; margin-top:8px}
+  .btn.ghost{background:transparent; border:1px solid var(--line); color:var(--fg); font-weight:600; font-size:.95rem; padding:11px 18px}
+  .score{font-size:3.4rem; font-weight:800; margin:.1em 0; font-variant-numeric:tabular-nums}
+  .score small{display:block; font-size:.9rem; color:var(--muted); font-weight:500; letter-spacing:.1em; text-transform:uppercase}
+  .sharegrid{font-size:1.15rem; line-height:1.3; letter-spacing:2px; margin:14px 0; word-break:break-word}
+  .row{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:12px}
+  .statline{display:flex; gap:20px; justify-content:center; margin:16px 0 4px}
+  .statline div{font-size:.8rem; color:var(--muted)}
+  .statline b{display:block; color:var(--fg); font-size:1.4rem; font-variant-numeric:tabular-nums}
+  .foot{margin-top:16px; font-size:.8rem; color:var(--muted)}
+  .foot a{color:var(--accent)}
+  .toast{position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(20px); opacity:0;
+    background:#e9edf5; color:#0e1117; font-weight:700; padding:10px 18px; border-radius:10px; transition:.25s; z-index:40}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+  .mode-pill{font-size:.72rem; color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:3px 9px}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Faint<span>.</span></div>
+  <div class="hstats">
+    <div>Streak<b id="hStreak">0</b></div>
+    <div>Best<b id="hBest">0</b></div>
+  </div>
+</header>
+
+<main>
+  <div class="hud">
+    <div class="round">Round <span id="roundN">1</span> <small id="modeLabel"></small></div>
+    <div class="lives" id="lives">❤️❤️❤️</div>
+  </div>
+  <div class="timerbar"><i id="timerFill"></i></div>
+  <div class="board" id="board" aria-label="Find the tile with a slightly different color"></div>
+  <div class="msg" id="msg">Tap the tile that looks <b>slightly different</b>.</div>
+</main>
+
+<!-- Start overlay -->
+<div class="overlay" id="startOverlay">
+  <div class="card">
+    <h1>Faint<span>.</span></h1>
+    <p class="tag">the daily color-perception game</p>
+    <p>One tile is a <b>faintly</b> different shade than the rest.<br/>Find it. Every round it gets harder.<br/>3 lives. Same puzzle for everyone, every day.</p>
+    <div class="row">
+      <button class="btn" id="playDaily">Play today's puzzle</button>
+    </div>
+    <div class="row">
+      <button class="btn ghost" id="playEndless">Endless (random)</button>
+    </div>
+    <p class="foot" id="dailyMeta"></p>
+  </div>
+</div>
+
+<!-- End overlay -->
+<div class="overlay" id="endOverlay" style="display:none">
+  <div class="card">
+    <div class="score"><span id="finalScore">0</span><small id="finalLabel">rounds</small></div>
+    <div id="endTitle" style="font-weight:700; font-size:1.15rem; margin-bottom:4px"></div>
+    <div class="sharegrid" id="shareGrid"></div>
+    <div class="statline">
+      <div>Streak<b id="endStreak">0</b></div>
+      <div>Best<b id="endBest">0</b></div>
+      <div>Played<b id="endPlayed">0</b></div>
+    </div>
+    <div class="row">
+      <button class="btn" id="shareBtn">Share result</button>
+    </div>
+    <div class="row">
+      <button class="btn ghost" id="againBtn">Play endless</button>
+    </div>
+    <p class="foot">A tiny open-source game. <a href="https://github.com/rahulatrkm/faint" target="_blank" rel="noopener">source</a> · nothing tracked</p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $ = (id)=>document.getElementById(id);
+
+// ---------- deterministic RNG (mulberry32) ----------
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function hashStr(s){ let h=2166136261>>>0; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return h>>>0; }
+function todayKey(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+// puzzle number = days since epoch date
+function puzzleNumber(){ const start=Date.UTC(2026,0,1); const now=new Date(); const u=Date.UTC(now.getFullYear(),now.getMonth(),now.getDate()); return Math.floor((u-start)/86400000)+1; }
+
+// ---------- game state ----------
+const State = {
+  rng:null, daily:false, round:1, lives:3, score:0, difficulty:0,
+  targetIndex:-1, grid:3, roundStart:0, timerMax:0, timerId:null, results:[], over:false
+};
+
+// difficulty: returns {grid, delta} — grid grows, color delta shrinks
+function roundParams(r, rng){
+  const grid = Math.min(3 + Math.floor((r-1)/2), 9);         // 3x3 -> up to 9x9
+  // color difference in Lab-ish perceptual units; starts easy ~26, floors ~2.2
+  const delta = Math.max(26 * Math.pow(0.86, r-1), 2.2);
+  return {grid, delta};
+}
+
+function hslToRgb(h,s,l){
+  h/=360; const a=s*Math.min(l,1-l);
+  const f=(n)=>{ const k=(n+h*12)%12; return l - a*Math.max(-1,Math.min(k-3,9-k,1)); };
+  return [Math.round(f(0)*255),Math.round(f(8)*255),Math.round(f(4)*255)];
+}
+const rgbCss=([r,g,b])=>`rgb(${r},${g},${b})`;
+
+function buildRound(){
+  const {grid, delta} = roundParams(State.round, State.rng);
+  State.grid = grid;
+  const n = grid*grid;
+  const rng = State.rng;
+  // base color: pleasant random hue, mid saturation/lightness
+  const hue = Math.floor(rng()*360);
+  const sat = 0.45 + rng()*0.35;
+  const lig = 0.42 + rng()*0.20;
+  const base = hslToRgb(hue, sat, lig);
+  // odd tile: nudge lightness (and a touch of hue) by delta, random direction
+  const dir = rng()<0.5 ? 1 : -1;
+  const dl = (delta/255) * dir;
+  const oddL = Math.max(0.06, Math.min(0.94, lig + dl));
+  const odd = hslToRgb(hue + dir*(delta*0.12), sat, oddL);
+  State.targetIndex = Math.floor(rng()*n);
+
+  const board = $("board");
+  board.style.gridTemplateColumns = `repeat(${grid},1fr)`;
+  board.innerHTML = "";
+  for(let i=0;i<n;i++){
+    const t=document.createElement("button");
+    t.className="tile"; t.type="button";
+    t.style.background = rgbCss(i===State.targetIndex ? odd : base);
+    t.setAttribute("aria-label","tile "+(i+1));
+    t.addEventListener("click", ()=>onTile(i, t), {passive:true});
+    board.appendChild(t);
+  }
+  $("roundN").textContent = State.round;
+  // timer scales a bit with difficulty (more tiles -> a little more time), capped
+  State.timerMax = Math.min(4200 + n*140, 12000);
+  startTimer();
+}
+
+function startTimer(){
+  clearInterval(State.timerId);
+  State.roundStart = performance.now();
+  const fill = $("timerFill"); fill.style.transform="scaleX(1)";
+  State.timerId = setInterval(()=>{
+    const el = performance.now()-State.roundStart;
+    const frac = Math.max(0, 1 - el/State.timerMax);
+    fill.style.transform = `scaleX(${frac})`;
+    if(frac<=0){ clearInterval(State.timerId); timeUp(); }
+  }, 80);
+}
+
+function flashBoard(revealIdx, missIdx){
+  const tiles=$("board").children;
+  if(missIdx!=null && tiles[missIdx]) tiles[missIdx].classList.add("miss");
+  if(tiles[revealIdx]) tiles[revealIdx].classList.add("reveal");
+}
+
+function onTile(i, el){
+  if(State.over) return;
+  clearInterval(State.timerId);
+  const took = performance.now()-State.roundStart;
+  if(i===State.targetIndex){
+    el.classList.add("win");
+    State.score++;
+    // record perf: green if fast, yellow if slow
+    State.results.push(took < State.timerMax*0.45 ? 2 : 1);
+    msg(`Nice — <b>round ${State.round}</b> cleared`);
+    State.round++;
+    setTimeout(nextRound, 240);
+  } else {
+    State.lives--;
+    State.results.push(0);
+    flashBoard(State.targetIndex, i);
+    renderLives();
+    if(State.lives<=0){ setTimeout(gameOver, 650); }
+    else { msg(`Not that one — <b>${State.lives}</b> ${State.lives===1?'life':'lives'} left`); setTimeout(()=>{ nextRound(true); }, 700); }
+  }
+}
+function timeUp(){
+  if(State.over) return;
+  State.lives--; State.results.push(0);
+  flashBoard(State.targetIndex, null); renderLives();
+  msg("Too slow!");
+  if(State.lives<=0){ setTimeout(gameOver, 650); }
+  else setTimeout(()=>nextRound(true), 700);
+}
+// on a miss we retry the SAME round number (don't advance difficulty)
+function nextRound(retry){ if(State.over) return; buildRound(); if(!retry) {} }
+
+function renderLives(){ $("lives").textContent = "❤️".repeat(State.lives) + "🖤".repeat(3-State.lives); }
+function msg(html){ $("msg").innerHTML = html; }
+
+// ---------- persistence ----------
+function loadStats(){ try{ return JSON.parse(localStorage.getItem("faint_stats")||"{}"); }catch(e){ return {}; } }
+function saveStats(s){ localStorage.setItem("faint_stats", JSON.stringify(s)); }
+
+function gameOver(){
+  State.over = true;
+  clearInterval(State.timerId);
+  const reached = State.score; // rounds cleared
+  const stats = loadStats();
+  stats.played = (stats.played||0)+1;
+  stats.best = Math.max(stats.best||0, reached);
+  if(State.daily){
+    const tkey = todayKey();
+    if(stats.lastDaily !== tkey){
+      // streak logic
+      const y = new Date(); y.setDate(y.getDate()-1);
+      const ykey = y.getFullYear()+"-"+String(y.getMonth()+1).padStart(2,"0")+"-"+String(y.getDate()).padStart(2,"0");
+      stats.streak = (stats.lastDaily===ykey) ? (stats.streak||0)+1 : 1;
+      stats.lastDaily = tkey;
+      stats.dailyScore = reached;
+    }
+  }
+  saveStats(stats);
+  showEnd(reached, stats);
+}
+
+function shareText(reached){
+  // emoji grid of round outcomes, 2=fast green, 1=slow yellow, 0=miss
+  const cells = State.results.map(r => r===2?"🟩":r===1?"🟨":"⬛");
+  // group into rows of 5 for readability
+  let grid="";
+  for(let i=0;i<cells.length;i+=5){ grid += cells.slice(i,i+5).join("")+"\n"; }
+  const head = State.daily ? `Faint #${puzzleNumber()}` : `Faint (endless)`;
+  return `${head} — Round ${reached}\n${grid}https://rahulatrkm.github.io/faint/`;
+}
+
+function showEnd(reached, stats){
+  $("finalScore").textContent = reached;
+  $("finalLabel").textContent = reached===1?"round":"rounds";
+  const titles = reached>=20?"🦅 Eagle eyes!" : reached>=14?"👀 Sharp!" : reached>=8?"🙂 Solid" : reached>=4?"Keep going!" : "Warm-up round";
+  $("endTitle").textContent = titles;
+  const cells = State.results.map(r => r===2?"🟩":r===1?"🟨":"⬛");
+  let grid=""; for(let i=0;i<cells.length;i+=5){ grid += cells.slice(i,i+5).join("")+" "; }
+  $("shareGrid").textContent = grid.trim();
+  $("endStreak").textContent = stats.streak||0;
+  $("endBest").textContent = stats.best||0;
+  $("endPlayed").textContent = stats.played||0;
+  $("hStreak").textContent = stats.streak||0;
+  $("hBest").textContent = stats.best||0;
+  $("endOverlay").style.display="flex";
+}
+
+function toast(t){ const el=$("toast"); el.textContent=t; el.classList.add("show"); setTimeout(()=>el.classList.remove("show"),1600); }
+
+async function doShare(){
+  const reached = State.score;
+  const text = shareText(reached);
+  if(navigator.share){
+    try{ await navigator.share({text}); return; }catch(e){ /* fall through */ }
+  }
+  try{ await navigator.clipboard.writeText(text); toast("Copied — go paste it!"); }
+  catch(e){ toast("Press Ctrl/Cmd+C to copy"); prompt("Copy your result:", text); }
+}
+
+// ---------- start ----------
+function begin(daily){
+  State.daily = daily;
+  State.round=1; State.lives=3; State.score=0; State.results=[]; State.over=false;
+  State.rng = daily ? mulberry32(hashStr("faint-"+todayKey())) : mulberry32((Math.random()*1e9)>>>0);
+  renderLives();
+  $("modeLabel").innerHTML = daily ? `· <span class="mode-pill">daily #${puzzleNumber()}</span>` : `· <span class="mode-pill">endless</span>`;
+  $("startOverlay").style.display="none";
+  $("endOverlay").style.display="none";
+  buildRound();
+}
+
+// init header stats + daily meta
+(function init(){
+  const s = loadStats();
+  $("hStreak").textContent = s.streak||0;
+  $("hBest").textContent = s.best||0;
+  const already = s.lastDaily===todayKey();
+  $("dailyMeta").innerHTML = `Puzzle #${puzzleNumber()} · ${already?`today's done (you reached round ${s.dailyScore||0}) — replay or go endless`:"fresh today"}`;
+})();
+
+$("playDaily").addEventListener("click", ()=>begin(true));
+$("playEndless").addEventListener("click", ()=>begin(false));
+$("againBtn").addEventListener("click", ()=>begin(false));
+$("shareBtn").addEventListener("click", doShare);
+</script>
+</body>
+</html>
