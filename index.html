@@ -2,348 +2,599 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Faint — the daily color-perception game</title>
-<meta name="description" content="One tile is a faintly different shade. Find it. Every round it gets harder. A new color puzzle every day — how sharp are your eyes?" />
-<meta name="theme-color" content="#0e1117" />
+<meta name="description" content="One tile is a faintly different shade. Find it before the timer runs out. A new puzzle every day, identical for everyone. Free, no signup." />
+<meta name="theme-color" content="#07080d" />
+<meta name="color-scheme" content="dark" />
 <link rel="canonical" href="https://rahulatrkm.github.io/faint/" />
 <meta property="og:title" content="Faint — the daily color-perception game" />
-<meta property="og:description" content="One tile is a faintly different shade. Find it. It gets harder every round. New puzzle daily." />
+<meta property="og:description" content="One tile is a faintly different shade. Find it. New puzzle daily, identical for everyone." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://rahulatrkm.github.io/faint/" />
 <meta name="twitter:card" content="summary_large_image" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230b0d14'/><rect x='5' y='5' width='9' height='9' rx='2.5' fill='%234f6a94'/><rect x='18' y='5' width='9' height='9' rx='2.5' fill='%234f6a94'/><rect x='5' y='18' width='9' height='9' rx='2.5' fill='%234f6a94'/><rect x='18' y='18' width='9' height='9' rx='2.5' fill='%236d8cba'/></svg>" />
 <style>
   :root{
-    --bg:#0e1117; --fg:#e9edf5; --muted:#8b97ad; --line:#222b3d;
-    --accent:#5b8cff; --good:#3ad39f; --bad:#ff5c7a; --gold:#ffcf5c;
-    --gap:6px;
+    --ink:#eef1f8; --dim:#98a2b8; --faint:#67708a;
+    --line:rgba(255,255,255,.09); --raised:rgba(255,255,255,.045);
+    --good:#4ade80; --bad:#fb7185;
   }
-  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  *,*::before,*::after{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent}
   html,body{height:100%}
   body{
-    margin:0; background:var(--bg); color:var(--fg);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
-    display:flex; flex-direction:column; align-items:center; min-height:100dvh; overflow-x:hidden;
-    user-select:none;
+    background:#07080d; color:var(--ink); min-height:100dvh; overflow-x:hidden;
+    font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased; user-select:none;
+    display:flex; flex-direction:column; align-items:center;
   }
-  header{width:100%; max-width:560px; padding:14px 18px 6px; display:flex; align-items:center; justify-content:space-between}
-  .brand{font-weight:800; letter-spacing:.5px; font-size:1.35rem}
-  .brand span{color:var(--accent)}
-  .hstats{display:flex; gap:16px; font-size:.82rem; color:var(--muted)}
-  .hstats b{display:block; color:var(--fg); font-size:1.05rem; text-align:center; font-variant-numeric:tabular-nums}
-  main{width:100%; max-width:560px; padding:6px 18px 24px; flex:1; display:flex; flex-direction:column}
-  .hud{display:flex; align-items:center; justify-content:space-between; margin:8px 2px 12px}
-  .round{font-size:1.05rem; font-weight:700}
-  .round small{color:var(--muted); font-weight:500}
-  .lives{font-size:1.15rem; letter-spacing:2px}
-  .timerbar{height:6px; border-radius:6px; background:var(--line); overflow:hidden; margin:2px 2px 14px}
-  .timerbar > i{display:block; height:100%; width:100%; background:linear-gradient(90deg,var(--good),var(--accent));
-    transform-origin:left; transition:transform .1s linear}
-  .board{
-    display:grid; gap:var(--gap); width:100%; aspect-ratio:1/1;
-    border-radius:16px; touch-action:manipulation;
+  body::before{
+    content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background:
+      radial-gradient(ellipse 70% 50% at 50% 0%, rgba(70,95,175,.16), transparent 70%),
+      radial-gradient(ellipse 60% 45% at 50% 100%, rgba(120,70,175,.10), transparent 70%);
   }
-  .tile{border-radius:10px; width:100%; height:100%; cursor:pointer; transition:transform .08s ease, box-shadow .12s ease}
-  .tile:active{transform:scale(.94)}
-  .tile.win{animation:pop .35s ease}
-  .tile.reveal{box-shadow:0 0 0 3px var(--good), 0 0 22px rgba(58,211,159,.6); z-index:2}
-  .tile.miss{box-shadow:0 0 0 3px var(--bad)}
-  @keyframes pop{0%{transform:scale(1)}45%{transform:scale(1.18)}100%{transform:scale(1)}}
-  .msg{min-height:22px; text-align:center; color:var(--muted); margin:14px 0 0; font-size:.95rem}
-  .msg b{color:var(--fg)}
+  .num{font-variant-numeric:tabular-nums; font-feature-settings:"tnum"}
 
-  /* start + end overlays */
-  .overlay{position:fixed; inset:0; background:rgba(8,11,18,.86); backdrop-filter:blur(6px);
-    display:flex; align-items:center; justify-content:center; padding:20px; z-index:20}
-  .card{background:#141a26; border:1px solid var(--line); border-radius:20px; padding:26px 24px; max-width:420px; width:100%; text-align:center}
-  .card h1{margin:.1em 0 .1em; font-size:2rem}
-  .card h1 span{color:var(--accent)}
-  .card .tag{color:var(--muted); margin:.2em 0 1em}
-  .card p{color:var(--muted); font-size:.95rem}
-  .btn{display:inline-block; border:0; cursor:pointer; font-weight:700; font-size:1.05rem;
-    background:linear-gradient(90deg,var(--accent),#8b5cff); color:#fff; padding:14px 26px; border-radius:14px; margin-top:8px}
-  .btn.ghost{background:transparent; border:1px solid var(--line); color:var(--fg); font-weight:600; font-size:.95rem; padding:11px 18px}
-  .score{font-size:3.4rem; font-weight:800; margin:.1em 0; font-variant-numeric:tabular-nums}
-  .score small{display:block; font-size:.9rem; color:var(--muted); font-weight:500; letter-spacing:.1em; text-transform:uppercase}
-  .sharegrid{font-size:1.15rem; line-height:1.3; letter-spacing:2px; margin:14px 0; word-break:break-word}
-  .row{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:12px}
-  .statline{display:flex; gap:20px; justify-content:center; margin:16px 0 4px}
-  .statline div{font-size:.8rem; color:var(--muted)}
-  .statline b{display:block; color:var(--fg); font-size:1.4rem; font-variant-numeric:tabular-nums}
-  .foot{margin-top:16px; font-size:.8rem; color:var(--muted)}
-  .foot a{color:var(--accent)}
-  .toast{position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(20px); opacity:0;
-    background:#e9edf5; color:#0e1117; font-weight:700; padding:10px 18px; border-radius:10px; transition:.25s; z-index:40}
-  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
-  .mode-pill{font-size:.72rem; color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:3px 9px}
+  header{
+    width:100%; max-width:600px; padding:max(16px,env(safe-area-inset-top)) 22px 0;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .wordmark{
+    font-size:1.02rem; font-weight:600; letter-spacing:.26em; text-indent:.26em;
+    background:linear-gradient(180deg,#fff,#8ba6dd);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  }
+  .hstats{display:flex; gap:22px}
+  .hstats .k{font-size:9.5px; letter-spacing:.15em; text-transform:uppercase; color:var(--faint); font-weight:600}
+  .hstats .v{font-size:15px; font-weight:600; margin-top:1px}
+
+  main{width:100%; max-width:600px; padding:0 22px 26px; flex:1; display:flex; flex-direction:column; justify-content:center}
+
+  .meta{display:flex; align-items:center; justify-content:space-between; margin-bottom:11px}
+  .roundlbl{font-size:12.5px; color:var(--dim); letter-spacing:.02em}
+  .roundlbl b{color:var(--ink); font-weight:600}
+  .pill{font-size:10px; letter-spacing:.13em; text-transform:uppercase; font-weight:600;
+    color:var(--faint); border:1px solid var(--line); border-radius:999px; padding:3px 9px; margin-left:7px}
+  .lives{display:flex; gap:6px; align-items:center}
+  .life{width:7px; height:7px; border-radius:50%; background:var(--good);
+    box-shadow:0 0 9px rgba(74,222,128,.55); transition:.4s cubic-bezier(.22,1,.36,1)}
+  .life.gone{background:rgba(255,255,255,.13); box-shadow:none; transform:scale(.72)}
+
+  .timer{height:2.5px; border-radius:3px; background:rgba(255,255,255,.07); overflow:hidden; margin-bottom:16px}
+  .timer > i{display:block; height:100%; width:100%; transform-origin:left; border-radius:3px;
+    background:linear-gradient(90deg,#4ade80,#60a5fa)}
+  .timer > i.warn{background:linear-gradient(90deg,#fbbf24,#fb7185)}
+
+  .boardwrap{position:relative; width:100%}
+  .board{
+    display:grid; gap:clamp(4px,1.4vw,8px); width:100%; aspect-ratio:1/1;
+    touch-action:manipulation;
+  }
+  .tile{
+    border:0; padding:0; border-radius:clamp(7px,1.9vw,11px); cursor:pointer; width:100%; height:100%;
+    position:relative; opacity:0; transform:scale(.9);
+    animation:tileIn .34s cubic-bezier(.22,1,.36,1) forwards;
+    transition:transform .13s cubic-bezier(.22,1,.36,1), box-shadow .18s ease;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.07);
+  }
+  @keyframes tileIn{to{opacity:1; transform:none}}
+  .tile:hover{transform:scale(1.035)}
+  .tile:active{transform:scale(.95)}
+  .tile:focus-visible{outline:2px solid #fff; outline-offset:2px}
+  .tile.hit{animation:hit .5s cubic-bezier(.22,1,.36,1); z-index:3;
+    box-shadow:0 0 0 2.5px var(--good), 0 0 30px rgba(74,222,128,.5)}
+  @keyframes hit{0%{transform:scale(1)}38%{transform:scale(1.16)}100%{transform:scale(1)}}
+  .tile.show{box-shadow:0 0 0 2.5px var(--good), 0 0 30px rgba(74,222,128,.45); z-index:3;
+    animation:breathe .85s ease-in-out infinite}
+  @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+  .tile.wrong{box-shadow:0 0 0 2.5px var(--bad); animation:nudge .38s cubic-bezier(.36,.07,.19,.97)}
+  @keyframes nudge{10%,90%{transform:translateX(-2px)}30%,70%{transform:translateX(3px)}50%{transform:translateX(-3px)}}
+  .board.shake{animation:boardShake .4s cubic-bezier(.36,.07,.19,.97)}
+  @keyframes boardShake{20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}
+
+  .ripple{position:absolute; border-radius:50%; pointer-events:none; z-index:4;
+    border:2px solid rgba(74,222,128,.85); animation:rip .62s cubic-bezier(.22,1,.36,1) forwards}
+  @keyframes rip{from{width:0;height:0;opacity:.9}to{width:240px;height:240px;opacity:0}}
+
+  .msg{min-height:20px; text-align:center; color:var(--faint); margin-top:16px; font-size:13px; letter-spacing:.01em}
+  .msg b{color:var(--ink); font-weight:600}
+
+  .veil{
+    position:fixed; inset:0; z-index:20; display:grid; place-items:center; padding:24px;
+    background:radial-gradient(ellipse at 50% 38%, rgba(28,32,66,.6), rgba(7,8,13,.95) 72%);
+    backdrop-filter:blur(4px);
+    opacity:0; pointer-events:none; transition:opacity .4s ease;
+  }
+  .veil.on{opacity:1; pointer-events:auto}
+  .sheet{width:100%; max-width:390px; text-align:center;
+    transform:translateY(12px) scale(.99); opacity:0;
+    transition:transform .48s cubic-bezier(.22,1,.36,1), opacity .48s ease}
+  .veil.on .sheet{transform:none; opacity:1}
+
+  .logo{font-size:clamp(2.6rem,11vw,3.7rem); font-weight:250; letter-spacing:.24em; text-indent:.24em;
+    line-height:1; background:linear-gradient(180deg,#fff 12%,#93aee0 58%,#a78bfa 100%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+    filter:drop-shadow(0 0 24px rgba(130,160,255,.3))}
+  .tag{color:var(--dim); font-size:14px; margin-top:14px; line-height:1.65}
+  .tag b{color:var(--ink); font-weight:600}
+
+  .cta{margin-top:26px; appearance:none; border:0; cursor:pointer; font:inherit; width:100%;
+    font-size:15px; font-weight:600; color:#0a0b12;
+    background:linear-gradient(180deg,#eef2ff,#bcc9ee);
+    padding:14px 30px; border-radius:999px;
+    box-shadow:0 8px 28px -9px rgba(150,180,255,.5);
+    transition:transform .16s cubic-bezier(.22,1,.36,1), box-shadow .16s}
+  .cta:hover{transform:translateY(-2px); box-shadow:0 14px 36px -11px rgba(150,180,255,.6)}
+  .cta:active{transform:translateY(0) scale(.985)}
+  .cta.sec{margin-top:10px; background:transparent; color:var(--ink);
+    border:1px solid var(--line); box-shadow:none; font-weight:550}
+  .cta.sec:hover{background:var(--raised); transform:none; box-shadow:none}
+  .foot{margin-top:20px; font-size:11.5px; color:var(--faint); line-height:1.6}
+  .foot a{color:var(--dim)}
+
+  .verdict{font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--faint); font-weight:600}
+  .bignum{font-size:clamp(3.2rem,15vw,4.6rem); font-weight:250; letter-spacing:-.03em; line-height:1; margin:7px 0 2px;
+    background:linear-gradient(180deg,#fff,#a5b8e6);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent}
+  .sub{color:var(--dim); font-size:13.5px}
+  .grid{font-size:15px; line-height:1.42; letter-spacing:2.5px; margin:20px 0 4px; word-break:break-word}
+  .statline{display:flex; justify-content:center; gap:28px; margin-top:20px}
+  .statline .k{font-size:9.5px; letter-spacing:.15em; text-transform:uppercase; color:var(--faint); font-weight:600}
+  .statline .v{font-size:19px; font-weight:600; margin-top:3px}
+
+  #toast{position:fixed; left:50%; bottom:38px; transform:translate(-50%,12px); z-index:40;
+    background:rgba(16,18,30,.9); border:1px solid var(--line); color:var(--ink);
+    padding:10px 19px; border-radius:999px; font-size:13px; font-weight:550;
+    opacity:0; transition:.28s cubic-bezier(.22,1,.36,1); backdrop-filter:blur(10px)}
+  #toast.on{opacity:1; transform:translate(-50%,0)}
+
+  @media (prefers-reduced-motion: reduce){ *{animation-duration:.01ms!important; transition-duration:.01ms!important} }
 </style>
 </head>
 <body>
 <header>
-  <div class="brand">Faint<span>.</span></div>
+  <div class="wordmark">FAINT</div>
   <div class="hstats">
-    <div>Streak<b id="hStreak">0</b></div>
-    <div>Best<b id="hBest">0</b></div>
+    <div><div class="k">Streak</div><div class="v num" id="hStreak">0</div></div>
+    <div><div class="k">Best</div><div class="v num" id="hBest">0</div></div>
   </div>
 </header>
 
 <main>
-  <div class="hud">
-    <div class="round">Round <span id="roundN">1</span> <small id="modeLabel"></small></div>
-    <div class="lives" id="lives">❤️❤️❤️</div>
+  <div class="meta">
+    <div class="roundlbl">Round <b class="num" id="roundN">1</b><span class="pill" id="modePill">daily</span></div>
+    <div class="lives" id="lives"></div>
   </div>
-  <div class="timerbar"><i id="timerFill"></i></div>
-  <div class="board" id="board" aria-label="Find the tile with a slightly different color"></div>
-  <div class="msg" id="msg">Tap the tile that looks <b>slightly different</b>.</div>
+  <div class="timer"><i id="timerFill"></i></div>
+  <div class="boardwrap">
+    <div class="board" id="board" aria-label="Find the tile with a slightly different colour"></div>
+  </div>
+  <p class="msg" id="msg">One tile is <b>faintly</b> different. Find it.</p>
 </main>
 
-<!-- Start overlay -->
-<div class="overlay" id="startOverlay">
-  <div class="card">
-    <h1>Faint<span>.</span></h1>
-    <p class="tag">the daily color-perception game</p>
-    <p>One tile is a <b>faintly</b> different shade than the rest.<br/>Find it. Every round it gets harder.<br/>3 lives. Same puzzle for everyone, every day.</p>
-    <div class="row">
-      <button class="btn" id="playDaily">Play today's puzzle</button>
-    </div>
-    <div class="row">
-      <button class="btn ghost" id="playEndless">Endless (random)</button>
-    </div>
+<div class="veil on" id="vStart">
+  <div class="sheet">
+    <div class="logo">FAINT</div>
+    <p class="tag">One tile is a <b>faintly</b> different shade.<br/>Find it before the bar runs out.<br/>Three lives. It gets harder every round.</p>
+    <button class="cta" id="btnDaily">Play today's puzzle</button>
+    <button class="cta sec" id="btnEndless">Endless mode</button>
     <p class="foot" id="dailyMeta"></p>
   </div>
 </div>
 
-<!-- End overlay -->
-<div class="overlay" id="endOverlay" style="display:none">
-  <div class="card">
-    <div class="score"><span id="finalScore">0</span><small id="finalLabel">rounds</small></div>
-    <div id="endTitle" style="font-weight:700; font-size:1.15rem; margin-bottom:4px"></div>
-    <div class="sharegrid" id="shareGrid"></div>
+<div class="veil" id="vEnd">
+  <div class="sheet">
+    <div class="verdict" id="eVerdict">Run over</div>
+    <div class="bignum num" id="eScore">0</div>
+    <div class="sub" id="eSub">rounds cleared</div>
+    <div class="grid" id="eGrid"></div>
     <div class="statline">
-      <div>Streak<b id="endStreak">0</b></div>
-      <div>Best<b id="endBest">0</b></div>
-      <div>Played<b id="endPlayed">0</b></div>
+      <div><div class="k">Streak</div><div class="v num" id="eStreak">0</div></div>
+      <div><div class="k">Best</div><div class="v num" id="eBest">0</div></div>
+      <div><div class="k">Played</div><div class="v num" id="ePlayed">0</div></div>
     </div>
-    <div class="row">
-      <button class="btn" id="shareBtn">Share result</button>
-    </div>
-    <div class="row">
-      <button class="btn ghost" id="againBtn">Play endless</button>
-    </div>
-    <p class="foot">A tiny open-source game. <a href="https://github.com/rahulatrkm/faint" target="_blank" rel="noopener">source</a> · nothing tracked</p>
+    <button class="cta" id="btnShare">Share result</button>
+    <button class="cta sec" id="btnAgain">Play endless</button>
+    <p class="foot">Open source · nothing tracked · <a href="https://github.com/rahulatrkm/faint" target="_blank" rel="noopener">source</a></p>
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<div id="toast"></div>
 
 <script>
 "use strict";
-const $ = (id)=>document.getElementById(id);
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 
-// ---------- deterministic RNG (mulberry32) ----------
-function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
-function hashStr(s){ let h=2166136261>>>0; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return h>>>0; }
-function todayKey(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
-// puzzle number = days since epoch date
-function puzzleNumber(){ const start=Date.UTC(2026,0,1); const now=new Date(); const u=Date.UTC(now.getFullYear(),now.getMonth(),now.getDate()); return Math.floor((u-start)/86400000)+1; }
+/* ============================ colour ============================
+   The whole game is one question: how big is the difference between two
+   swatches? So it has to be measured in a space where equal numeric
+   distance looks like equal perceived distance. sRGB and HSL are not that
+   space — a 5% lightness nudge on yellow is glaring and the same nudge on
+   deep blue is invisible, which makes difficulty depend on whichever hue
+   the RNG happened to pick. OKLab is perceptually uniform, so one delta-E
+   means one difficulty at every hue. */
+const srgbFromLinear = c => c <= 0.0031308 ? c * 12.92 : 1.055 * Math.pow(c, 1/2.4) - 0.055;
+const srgbToLinear   = c => c <= 0.04045    ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
 
-// ---------- game state ----------
-const State = {
-  rng:null, daily:false, round:1, lives:3, score:0, difficulty:0,
-  targetIndex:-1, grid:3, roundStart:0, timerMax:0, timerId:null, results:[], over:false
+function oklabToLinear(L, a, b){
+  const l_ = L + 0.3963377774*a + 0.2158037573*b;
+  const m_ = L - 0.1055613458*a - 0.0638541728*b;
+  const s_ = L - 0.0894841775*a - 1.2914855480*b;
+  const l = l_*l_*l_, m = m_*m_*m_, s = s_*s_*s_;
+  return [
+     4.0767416621*l - 3.3077115913*m + 0.2309699292*s,
+    -1.2684380046*l + 2.6097574011*m - 0.3413193965*s,
+    -0.0041960863*l - 0.7034186147*m + 1.7076147010*s,
+  ];
+}
+function rgbToOklab(r, g, b){
+  const R = srgbToLinear(r/255), G = srgbToLinear(g/255), B = srgbToLinear(b/255);
+  const l = Math.cbrt(0.4122214708*R + 0.5363325363*G + 0.0514459929*B);
+  const m = Math.cbrt(0.2119034982*R + 0.6806995451*G + 0.1073969566*B);
+  const s = Math.cbrt(0.0883024619*R + 0.2817188376*G + 0.6299787005*B);
+  return [
+    0.2104542553*l + 0.7936177850*m - 0.0040720468*s,
+    1.9779984951*l - 2.4285922050*m + 0.4505937099*s,
+    0.0259040371*l + 0.7827717662*m - 0.8086757660*s,
+  ];
+}
+
+/* returns null outside sRGB, so callers pick another direction instead of
+   clamping — clamping silently changes the delta and therefore the difficulty */
+function oklabToRgb(L, a, b){
+  const lin = oklabToLinear(L, a, b);
+  for(const v of lin) if(v < -1e-4 || v > 1 + 1e-4) return null;
+  return lin.map(v => Math.round(clamp01(srgbFromLinear(clamp01(v))) * 255));
+}
+const labDist = (p, q) => Math.hypot(p[0]-q[0], p[1]-q[1], p[2]-q[2]);
+const cssOf = rgb => `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+
+/* Offset directions as unit vectors in OKLab. A mix of pure lightness, pure
+   chroma and blends, so the odd tile is not reliably "the lighter one" —
+   that becomes a learnable tell rather than a perception test. */
+const DIRS = (() => {
+  const d = [[1,0,0],[-1,0,0]];
+  for(let i = 0; i < 12; i++){
+    const t = i / 12 * Math.PI * 2, c = Math.cos(t), s = Math.sin(t);
+    d.push([0, c, s]);
+    d.push([ 0.6, 0.8*c, 0.8*s]);
+    d.push([-0.6, 0.8*c, 0.8*s]);
+  }
+  return d.map(([x,y,z]) => { const m = Math.hypot(x,y,z); return [x/m, y/m, z/m]; });
+})();
+
+/* Find the pair of ACTUAL 8-bit colours whose separation is closest to dE.
+
+   Working in continuous OKLab and rounding at the end does not survive the
+   screen: at the small deltas this game reaches, two colours a genuine dE
+   apart can round to the identical RGB byte triple, producing a round with
+   no visible answer at all. So walk outward in the chosen direction and
+   measure the distance between quantised colours, which is what the eye
+   actually receives. */
+function pairForDelta(baseLab, dE, rng){
+  const start = Math.floor(rng() * DIRS.length);
+  const step = 0.00035;
+  let overall = null, tried = 0;
+  for(let d = 0; d < DIRS.length && tried < 6; d++){
+    const dir = DIRS[(start + d) % DIRS.length];
+    let best = null;
+    for(let m = dE * 0.3; m <= dE * 3.5; m += step){
+      const rgb = oklabToRgb(baseLab[0] + dir[0]*m, baseLab[1] + dir[1]*m, baseLab[2] + dir[2]*m);
+      if(!rgb) break;
+      const got = labDist(baseLab, rgbToOklab(rgb[0], rgb[1], rgb[2]));
+      if(got <= 0) continue;
+      if(!best || Math.abs(got - dE) < Math.abs(best.dE - dE)) best = { rgb, dE: got };
+      if(got >= dE) break;
+    }
+    if(!best) continue;
+    tried++;
+    // 8-bit output only offers discrete deltas, so sample a few directions
+    // and keep whichever lands nearest the intended difficulty
+    if(!overall || Math.abs(best.dE - dE) < Math.abs(overall.dE - dE)) overall = best;
+  }
+  return overall;
+}
+
+/* ============================ rng ============================ */
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function hashStr(s){
+  let h = 2166136261 >>> 0;
+  for(let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function todayKey(d = new Date()){
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+function puzzleNumber(){
+  const start = Date.UTC(2026, 0, 1), n = new Date();
+  return Math.floor((Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()) - start) / 86400000) + 1;
+}
+
+/* ============================ difficulty ============================ */
+function roundParams(r){
+  const grid = Math.min(3 + Math.floor((r - 1) / 3), 7);
+  // floors at 0.009: below roughly this, one 8-bit step is a large fraction
+  // of the delta and the intended difficulty stops being deliverable
+  const dE   = Math.max(0.055 * Math.pow(0.90, r - 1), 0.009);
+  const tiles = grid * grid;
+  const ms   = clamp(3800 + tiles * 120, 3800, 11000);
+  return { grid, dE, ms, tiles };
+}
+
+/* Each round is seeded from (day, round, attempt) rather than from one
+   running stream. With a single stream a miss consumes extra draws, so two
+   people playing the "same" daily diverge the moment one of them slips —
+   the shared-puzzle promise only ever held for a flawless run. Keyed this
+   way, round 7 attempt 1 is the same board for everybody. */
+function seedFor(dayKey, round, attempt){
+  return mulberry32(hashStr(`faint|${dayKey}|r${round}|a${attempt}`));
+}
+
+/* Pure description of a board, so it can be tested without a DOM. */
+function makeBoard(dayKey, round, attempt, rng){
+  const p = roundParams(round);
+  const r = rng || seedFor(dayKey, round, attempt);
+  const L = 0.58 + r() * 0.14;
+  const C = 0.055 + r() * 0.07;
+  const h = r() * Math.PI * 2;
+
+  let baseRgb = oklabToRgb(L, C * Math.cos(h), C * Math.sin(h));
+  if(!baseRgb) baseRgb = oklabToRgb(L, 0, 0) || [128, 128, 128];
+  const baseLab = rgbToOklab(baseRgb[0], baseRgb[1], baseRgb[2]);
+
+  const pair = pairForDelta(baseLab, p.dE, r);
+  const oddRgb = pair ? pair.rgb : baseRgb;
+
+  return {
+    params: p, target: Math.floor(r() * p.tiles),
+    baseRgb, oddRgb, baseLab,
+    oddLab: rgbToOklab(oddRgb[0], oddRgb[1], oddRgb[2]),
+    baseCss: cssOf(baseRgb), oddCss: cssOf(oddRgb),
+    realised: pair ? pair.dE : 0,
+    failed: !pair,
+  };
+}
+
+/* ============================ audio ============================ */
+let AC = null, muted = false;
+const PENT = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26, 28, 31, 33, 36];
+const actx = () => (AC = AC || new (window.AudioContext || window.webkitAudioContext)());
+function tone(semis, { gain = .1, dur = .42, type = "sine" } = {}){
+  if(muted) return;
+  try{
+    const a = actx(), t = a.currentTime;
+    const o = a.createOscillator(), g = a.createGain(), f = a.createBiquadFilter();
+    f.type = "lowpass"; f.frequency.value = 3000;
+    o.type = type; o.frequency.value = 261.63 * Math.pow(2, semis / 12);
+    o.connect(g); g.connect(f); f.connect(a.destination);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(gain, t + .01);
+    g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.start(t); o.stop(t + dur);
+  }catch(e){}
+}
+function buzz(){
+  if(muted) return;
+  try{
+    const a = actx(), t = a.currentTime;
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = "triangle";
+    o.frequency.setValueAtTime(196, t);
+    o.frequency.exponentialRampToValueAtTime(88, t + .26);
+    g.gain.setValueAtTime(.13, t); g.gain.exponentialRampToValueAtTime(.0001, t + .3);
+    o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + .3);
+  }catch(e){}
+}
+
+/* ============================ state ============================ */
+const S = {
+  daily: true, dayKey: "", round: 1, attempt: 1, lives: 3, cleared: 0,
+  target: -1, grid: 3, results: [], over: true,
+  tStart: 0, tMax: 0, raf: 0, locked: false,
 };
 
-// difficulty: returns {grid, delta} — grid grows, color delta shrinks
-function roundParams(r, rng){
-  const grid = Math.min(3 + Math.floor((r-1)/2), 9);         // 3x3 -> up to 9x9
-  // color difference in Lab-ish perceptual units; starts easy ~26, floors ~2.2
-  const delta = Math.max(26 * Math.pow(0.86, r-1), 2.2);
-  return {grid, delta};
-}
+const STATS_KEY = "faint_stats_v2";
+const loadStats = () => { try{ return JSON.parse(localStorage.getItem(STATS_KEY) || "{}"); }catch(e){ return {}; } };
+const saveStats = s => { try{ localStorage.setItem(STATS_KEY, JSON.stringify(s)); }catch(e){} };
 
-function hslToRgb(h,s,l){
-  h/=360; const a=s*Math.min(l,1-l);
-  const f=(n)=>{ const k=(n+h*12)%12; return l - a*Math.max(-1,Math.min(k-3,9-k,1)); };
-  return [Math.round(f(0)*255),Math.round(f(8)*255),Math.round(f(4)*255)];
-}
-const rgbCss=([r,g,b])=>`rgb(${r},${g},${b})`;
-
+/* ============================ round ============================ */
 function buildRound(){
-  const {grid, delta} = roundParams(State.round, State.rng);
-  State.grid = grid;
-  const n = grid*grid;
-  const rng = State.rng;
-  // base color: pleasant random hue, mid saturation/lightness
-  const hue = Math.floor(rng()*360);
-  const sat = 0.45 + rng()*0.35;
-  const lig = 0.42 + rng()*0.20;
-  const base = hslToRgb(hue, sat, lig);
-  // odd tile: nudge lightness (and a touch of hue) by delta, random direction
-  const dir = rng()<0.5 ? 1 : -1;
-  const dl = (delta/255) * dir;
-  const oddL = Math.max(0.06, Math.min(0.94, lig + dl));
-  const odd = hslToRgb(hue + dir*(delta*0.12), sat, oddL);
-  State.targetIndex = Math.floor(rng()*n);
+  const rng = S.daily ? null : mulberry32((Math.random() * 4294967295) >>> 0);
+  const b = makeBoard(S.dayKey, S.round, S.attempt, rng);
+  S.grid = b.params.grid;
+  S.target = b.target;
 
   const board = $("board");
-  board.style.gridTemplateColumns = `repeat(${grid},1fr)`;
+  board.style.gridTemplateColumns = `repeat(${b.params.grid},1fr)`;
   board.innerHTML = "";
-  for(let i=0;i<n;i++){
-    const t=document.createElement("button");
-    t.className="tile"; t.type="button";
-    t.style.background = rgbCss(i===State.targetIndex ? odd : base);
-    t.setAttribute("aria-label","tile "+(i+1));
-    t.addEventListener("click", ()=>onTile(i, t), {passive:true});
-    board.appendChild(t);
+  const frag = document.createDocumentFragment();
+  for(let i = 0; i < b.params.tiles; i++){
+    const t = document.createElement("button");
+    t.type = "button"; t.className = "tile";
+    t.style.background = i === b.target ? b.oddCss : b.baseCss;
+    t.style.animationDelay = (i % b.params.grid + Math.floor(i / b.params.grid)) * 9 + "ms";
+    t.setAttribute("aria-label", "tile " + (i + 1));
+    t.addEventListener("click", () => onTile(i, t));
+    frag.appendChild(t);
   }
-  $("roundN").textContent = State.round;
-  // timer scales a bit with difficulty (more tiles -> a little more time), capped
-  State.timerMax = Math.min(4200 + n*140, 12000);
+  board.appendChild(frag);
+
+  $("roundN").textContent = S.round;
+  S.tMax = b.params.ms;
+  S.locked = false;
   startTimer();
 }
 
 function startTimer(){
-  clearInterval(State.timerId);
-  State.roundStart = performance.now();
-  const fill = $("timerFill"); fill.style.transform="scaleX(1)";
-  State.timerId = setInterval(()=>{
-    const el = performance.now()-State.roundStart;
-    const frac = Math.max(0, 1 - el/State.timerMax);
+  cancelAnimationFrame(S.raf);
+  S.tStart = performance.now();
+  const fill = $("timerFill");
+  const step = now => {
+    const frac = Math.max(0, 1 - (now - S.tStart) / S.tMax);
     fill.style.transform = `scaleX(${frac})`;
-    if(frac<=0){ clearInterval(State.timerId); timeUp(); }
-  }, 80);
+    fill.classList.toggle("warn", frac < .3);
+    if(frac <= 0){ timeUp(); return; }
+    S.raf = requestAnimationFrame(step);
+  };
+  S.raf = requestAnimationFrame(step);
 }
 
-function flashBoard(revealIdx, missIdx){
-  const tiles=$("board").children;
-  if(missIdx!=null && tiles[missIdx]) tiles[missIdx].classList.add("miss");
-  if(tiles[revealIdx]) tiles[revealIdx].classList.add("reveal");
+function ripple(el){
+  const b = $("board").getBoundingClientRect(), r = el.getBoundingClientRect();
+  const d = document.createElement("span");
+  d.className = "ripple";
+  d.style.left = (r.left - b.left + r.width / 2) + "px";
+  d.style.top  = (r.top  - b.top  + r.height / 2) + "px";
+  d.style.transform = "translate(-50%,-50%)";
+  $("board").appendChild(d);
+  setTimeout(() => d.remove(), 650);
 }
 
 function onTile(i, el){
-  if(State.over) return;
-  clearInterval(State.timerId);
-  const took = performance.now()-State.roundStart;
-  if(i===State.targetIndex){
-    el.classList.add("win");
-    State.score++;
-    // record perf: green if fast, yellow if slow
-    State.results.push(took < State.timerMax*0.45 ? 2 : 1);
-    msg(`Nice — <b>round ${State.round}</b> cleared`);
-    State.round++;
-    setTimeout(nextRound, 240);
-  } else {
-    State.lives--;
-    State.results.push(0);
-    flashBoard(State.targetIndex, i);
-    renderLives();
-    if(State.lives<=0){ setTimeout(gameOver, 650); }
-    else { msg(`Not that one — <b>${State.lives}</b> ${State.lives===1?'life':'lives'} left`); setTimeout(()=>{ nextRound(true); }, 700); }
+  if(S.over || S.locked) return;
+  S.locked = true;
+  cancelAnimationFrame(S.raf);
+  const took = performance.now() - S.tStart;
+
+  if(i === S.target){
+    el.classList.add("hit"); ripple(el);
+    tone(PENT[Math.min(S.cleared, PENT.length - 1)], { gain: .11, dur: .5 });
+    S.cleared++;
+    S.results.push(took < S.tMax * .45 ? 2 : 1);
+    say(`Round <b>${S.round}</b> cleared`);
+    S.round++; S.attempt = 1;
+    setTimeout(buildRound, 330);
+  }else{
+    lose(el, false);
   }
 }
+
 function timeUp(){
-  if(State.over) return;
-  State.lives--; State.results.push(0);
-  flashBoard(State.targetIndex, null); renderLives();
-  msg("Too slow!");
-  if(State.lives<=0){ setTimeout(gameOver, 650); }
-  else setTimeout(()=>nextRound(true), 700);
+  if(S.over || S.locked) return;
+  S.locked = true;
+  lose(null, true);
 }
-// on a miss we retry the SAME round number (don't advance difficulty)
-function nextRound(retry){ if(State.over) return; buildRound(); if(!retry) {} }
 
-function renderLives(){ $("lives").textContent = "❤️".repeat(State.lives) + "🖤".repeat(3-State.lives); }
-function msg(html){ $("msg").innerHTML = html; }
+function lose(el, ranOut){
+  cancelAnimationFrame(S.raf);
+  S.lives--; S.results.push(0);
+  buzz();
+  const tiles = $("board").children;
+  if(el) el.classList.add("wrong");
+  if(tiles[S.target]) tiles[S.target].classList.add("show");
+  $("board").classList.add("shake");
+  setTimeout(() => $("board").classList.remove("shake"), 420);
+  renderLives();
+  say(ranOut ? "Out of time" : `Not that one — <b>${S.lives}</b> left`);
+  if(S.lives <= 0){ setTimeout(gameOver, 900); }
+  else { S.attempt++; setTimeout(buildRound, 950); }
+}
 
-// ---------- persistence ----------
-function loadStats(){ try{ return JSON.parse(localStorage.getItem("faint_stats")||"{}"); }catch(e){ return {}; } }
-function saveStats(s){ localStorage.setItem("faint_stats", JSON.stringify(s)); }
+function renderLives(){
+  const w = $("lives"); w.innerHTML = "";
+  for(let i = 0; i < 3; i++){
+    const d = document.createElement("i");
+    d.className = "life" + (i < S.lives ? "" : " gone");
+    w.appendChild(d);
+  }
+}
+const say = html => { $("msg").innerHTML = html; };
+
+/* ============================ end ============================ */
+function applyResult(st, cleared, daily, dayKey, yesterdayKey){
+  st.played = (st.played || 0) + 1;
+  st.best = Math.max(st.best || 0, cleared);
+  if(daily && st.lastDaily !== dayKey){
+    st.streak = st.lastDaily === yesterdayKey ? (st.streak || 0) + 1 : 1;
+    st.lastDaily = dayKey;
+    st.dailyScore = cleared;
+  }
+  return st;
+}
 
 function gameOver(){
-  State.over = true;
-  clearInterval(State.timerId);
-  const reached = State.score; // rounds cleared
-  const stats = loadStats();
-  stats.played = (stats.played||0)+1;
-  stats.best = Math.max(stats.best||0, reached);
-  if(State.daily){
-    const tkey = todayKey();
-    if(stats.lastDaily !== tkey){
-      // streak logic
-      const y = new Date(); y.setDate(y.getDate()-1);
-      const ykey = y.getFullYear()+"-"+String(y.getMonth()+1).padStart(2,"0")+"-"+String(y.getDate()).padStart(2,"0");
-      stats.streak = (stats.lastDaily===ykey) ? (stats.streak||0)+1 : 1;
-      stats.lastDaily = tkey;
-      stats.dailyScore = reached;
-    }
-  }
-  saveStats(stats);
-  showEnd(reached, stats);
+  S.over = true;
+  cancelAnimationFrame(S.raf);
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  const st = applyResult(loadStats(), S.cleared, S.daily, S.dayKey, todayKey(y));
+  saveStats(st);
+
+  const c = S.cleared;
+  $("eVerdict").textContent = c >= 20 ? "Exceptional" : c >= 14 ? "Sharp eyes" : c >= 8 ? "Solid run" : c >= 4 ? "Warming up" : "First steps";
+  $("eScore").textContent = c;
+  $("eSub").textContent = (c === 1 ? "round" : "rounds") + " cleared";
+  $("eGrid").textContent = gridArt();
+  $("eStreak").textContent = st.streak || 0;
+  $("eBest").textContent = st.best || 0;
+  $("ePlayed").textContent = st.played || 0;
+  $("hStreak").textContent = st.streak || 0;
+  $("hBest").textContent = st.best || 0;
+  show("vEnd");
 }
 
-function shareText(reached){
-  // emoji grid of round outcomes, 2=fast green, 1=slow yellow, 0=miss
-  const cells = State.results.map(r => r===2?"🟩":r===1?"🟨":"⬛");
-  // group into rows of 5 for readability
-  let grid="";
-  for(let i=0;i<cells.length;i+=5){ grid += cells.slice(i,i+5).join("")+"\n"; }
-  const head = State.daily ? `Faint #${puzzleNumber()}` : `Faint (endless)`;
-  return `${head} — Round ${reached}\n${grid}https://rahulatrkm.github.io/faint/`;
+const CELL = { 2:"\u{1F7E9}", 1:"\u{1F7E8}", 0:"\u{2B1B}" };
+function gridArt(sep = " "){
+  const cells = S.results.map(r => CELL[r]);
+  const rows = [];
+  for(let i = 0; i < cells.length; i += 5) rows.push(cells.slice(i, i + 5).join(""));
+  return rows.join(sep);
+}
+function shareText(){
+  const head = S.daily ? `Faint #${puzzleNumber()}` : "Faint (endless)";
+  return `${head} — ${S.cleared} rounds\n${gridArt("\n")}\nhttps://rahulatrkm.github.io/faint/`;
 }
 
-function showEnd(reached, stats){
-  $("finalScore").textContent = reached;
-  $("finalLabel").textContent = reached===1?"round":"rounds";
-  const titles = reached>=20?"🦅 Eagle eyes!" : reached>=14?"👀 Sharp!" : reached>=8?"🙂 Solid" : reached>=4?"Keep going!" : "Warm-up round";
-  $("endTitle").textContent = titles;
-  const cells = State.results.map(r => r===2?"🟩":r===1?"🟨":"⬛");
-  let grid=""; for(let i=0;i<cells.length;i+=5){ grid += cells.slice(i,i+5).join("")+" "; }
-  $("shareGrid").textContent = grid.trim();
-  $("endStreak").textContent = stats.streak||0;
-  $("endBest").textContent = stats.best||0;
-  $("endPlayed").textContent = stats.played||0;
-  $("hStreak").textContent = stats.streak||0;
-  $("hBest").textContent = stats.best||0;
-  $("endOverlay").style.display="flex";
+/* ============================ ui ============================ */
+const show = id => $(id).classList.add("on");
+const hide = id => $(id).classList.remove("on");
+let toastT = null;
+function toast(m){
+  const el = $("toast"); el.textContent = m; el.classList.add("on");
+  clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("on"), 1900);
 }
 
-function toast(t){ const el=$("toast"); el.textContent=t; el.classList.add("show"); setTimeout(()=>el.classList.remove("show"),1600); }
-
-async function doShare(){
-  const reached = State.score;
-  const text = shareText(reached);
-  if(navigator.share){
-    try{ await navigator.share({text}); return; }catch(e){ /* fall through */ }
-  }
-  try{ await navigator.clipboard.writeText(text); toast("Copied — go paste it!"); }
-  catch(e){ toast("Press Ctrl/Cmd+C to copy"); prompt("Copy your result:", text); }
-}
-
-// ---------- start ----------
 function begin(daily){
-  State.daily = daily;
-  State.round=1; State.lives=3; State.score=0; State.results=[]; State.over=false;
-  State.rng = daily ? mulberry32(hashStr("faint-"+todayKey())) : mulberry32((Math.random()*1e9)>>>0);
-  renderLives();
-  $("modeLabel").innerHTML = daily ? `· <span class="mode-pill">daily #${puzzleNumber()}</span>` : `· <span class="mode-pill">endless</span>`;
-  $("startOverlay").style.display="none";
-  $("endOverlay").style.display="none";
+  actx();
+  S.daily = daily; S.dayKey = todayKey();
+  S.round = 1; S.attempt = 1; S.lives = 3; S.cleared = 0;
+  S.results = []; S.over = false;
+  $("modePill").textContent = daily ? `daily #${puzzleNumber()}` : "endless";
+  renderLives(); say("One tile is <b>faintly</b> different. Find it.");
+  hide("vStart"); hide("vEnd");
   buildRound();
 }
 
-// init header stats + daily meta
+$("btnDaily").addEventListener("click", () => begin(true));
+$("btnEndless").addEventListener("click", () => begin(false));
+$("btnAgain").addEventListener("click", () => begin(false));
+$("btnShare").addEventListener("click", async () => {
+  const text = shareText();
+  try{
+    if(navigator.share){ await navigator.share({ text }); return; }
+    await navigator.clipboard.writeText(text); toast("Copied");
+  }catch(e){ toast("Could not copy"); }
+});
+
 (function init(){
   const s = loadStats();
-  $("hStreak").textContent = s.streak||0;
-  $("hBest").textContent = s.best||0;
-  const already = s.lastDaily===todayKey();
-  $("dailyMeta").innerHTML = `Puzzle #${puzzleNumber()} · ${already?`today's done (you reached round ${s.dailyScore||0}) — replay or go endless`:"fresh today"}`;
+  $("hStreak").textContent = s.streak || 0;
+  $("hBest").textContent = s.best || 0;
+  renderLives();
+  const done = s.lastDaily === todayKey();
+  $("dailyMeta").textContent = done
+    ? `Puzzle #${puzzleNumber()} · done today — you reached round ${s.dailyScore || 0}`
+    : `Puzzle #${puzzleNumber()} · same board for everyone`;
 })();
-
-$("playDaily").addEventListener("click", ()=>begin(true));
-$("playEndless").addEventListener("click", ()=>begin(false));
-$("againBtn").addEventListener("click", ()=>begin(false));
-$("shareBtn").addEventListener("click", doShare);
 </script>
 </body>
 </html>
