@@ -568,8 +568,9 @@ function toast(m){
   clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("on"), 1900);
 }
 
+const dropFocus = () => { if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); };
 function begin(daily){
-  actx();
+  actx(); dropFocus();
   S.daily = daily; S.dayKey = todayKey();
   S.round = 1; S.attempt = 1; S.lives = 3; S.cleared = 0;
   S.results = []; S.over = false;
